@@ -43,7 +43,8 @@ options(allow_html_in_all_outputs=TRUE)
 
 pacman::p_load(rio, tidyverse,janitor, data.table, here, sf, readxl, lubridate, leaflet, zoo, gghighlight, lme4,
                patchwork, # two plots side by side
-               scales # for label_wrap
+               scales, # for label_wrap
+               ggpubr #4 plots
                
                ) # just add needed packages to this line and Pacman will install and load them.
 
@@ -523,7 +524,7 @@ MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
                                    "yes" = "Weekend")
 
 # Newplot
-ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+ ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
   ggtitle("Czech Republic") +
   theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
   xlab("") + 
@@ -554,7 +555,7 @@ ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
   theme(axis.text.x = element_text(angle = 45, hjust=1)) +
   theme(legend.position = "none")
 
-theme(axis.text.x = element_text(angle = 45, hjust=1))
+
 
 
 
@@ -806,7 +807,7 @@ ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
   theme(axis.text.x = element_text(angle = 45, hjust=1)) +
   theme(legend.position = "none")
 
-theme(axis.text.x = element_text(angle = 45, hjust=1))
+
 
 
 
@@ -1087,7 +1088,6 @@ ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
   theme(axis.text.x = element_text(angle = 45, hjust=1)) +
   theme(legend.position = "none")
 
-theme(axis.text.x = element_text(angle = 45, hjust=1))
 
 ```
 
@@ -1333,6 +1333,8 @@ ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
 
 
 ```
+
+
 
 # COVID effort plot
 
