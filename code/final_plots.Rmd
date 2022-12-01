@@ -14,14 +14,7 @@ output:
   pdf_document:
     toc: yes
 title: "Final plots - COVID"
-# title: "Kaunas Water Reservoir - Fishing data from Deeper"
-# author: "Fernando Mateos-González"
-# date: "`r format(Sys.time(), '%d %B, %Y')`"
-# output:
-#   word_document:
-#     toc: no
-#     fig_caption: true
-#     reference_docx: styleword.docx
+
 knit: (function(inputFile, encoding) {
   
   rmarkdown::render(inputFile, encoding = encoding, output_dir = "output") })
@@ -1603,7 +1596,7 @@ paro_phase4 <- paro_month4 %>%
   dplyr::distinct() %>% 
   dplyr::rename("phase" = "lockdown_phase")
 
-rio::export(paro_phase4, here::here("output", "pnas_plots", "paro.csv"))
+# rio::export(paro_phase4, here::here("output", "pnas_plots", "paro.csv"))
 
 
 

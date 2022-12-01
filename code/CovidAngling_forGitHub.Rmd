@@ -50,8 +50,10 @@ library(rio)
 
 ######################################
 #Import the Czech data into dataframe 'dfD'
-dfD <- readRDS("data/Ddaily_new10.rds")
+# dfD <- readRDS("Ddaily_new10.rds")
 # dfD <- readRDS("Ddaily_water.rds")
+
+dfD <- import(here::here("data", "plots","Ddaily_new10.rds" ))
 
 str(dfD)
 names(dfD)
@@ -60,25 +62,25 @@ names(dfD)
 # [4] "workplace_closures"     "school_closures"        "stay_home_requirements"
 # [7] "n_unique_day"           "day_of_week"            "weekend"               
 # [10] "pop_2018"               "pop_2019"               "pop_2020"              
-# [13] "pop_2021"         
+# [13] "pop_2021"   
 ```
 
 ## Setting alternative lockdown dates
 
 ```{r}
-#checking lockdown values
-firstmuni <- first(unique(tt2$municipality))
-oneMuni <- dfD %>% filter (municipality == firstmuni) %>% filter (date_name > "2019-12-31")
-tt2 <- which(oneMuni$date_name > "2020-03-10" & oneMuni$date_name < "2020-05-31")
-
-## replace with new values
-dfDe <- dfD
-dfDe$stay_home_requirements <- 0
-dfDe$stay_home_requirements[which(dfDe$date_name > "2020-03-10" & dfDe$date_name < "2020-05-31")] <- 1
-dfDe$stay_home_requirements[which(dfDe$date_name > "2020-10-23" & dfDe$date_name < "2021-05-20")] <- 1
-
-dfDoriginal <- dfD
-dfD <- dfDe
+# #checking lockdown values
+# firstmuni <- first(unique(tt2$municipality))
+# oneMuni <- dfD %>% filter (municipality == firstmuni) %>% filter (date_name > "2019-12-31")
+# tt2 <- which(oneMuni$date_name > "2020-03-10" & oneMuni$date_name < "2020-05-31")
+# 
+# ## replace with new values
+# dfDe <- dfD
+# dfDe$stay_home_requirements <- 0
+# dfDe$stay_home_requirements[which(dfDe$date_name > "2020-03-10" & dfDe$date_name < "2020-05-31")] <- 1
+# dfDe$stay_home_requirements[which(dfDe$date_name > "2020-10-23" & dfDe$date_name < "2021-05-20")] <- 1
+# 
+# dfDoriginal <- dfD
+# dfD <- dfDe
 ```
 
 ##Data exploration
