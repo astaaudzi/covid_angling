@@ -1,0 +1,611 @@
+---
+title: "R code for analysis of covid fishing data"
+author: "Carl Smith"
+date: "2022-09-06"
+output: html_document
+---
+    
+## Libraries
+    
+```{r message=FALSE}
+# Clear all and restart
+# rm(list = ls())
+# .rs.restartR()
+
+# setwd("~/Documents/1. TO DO/Lithuania/CovidFish")
+
+#Load packages
+library(arm)
+library(car)
+library(ggplot2)
+library(lattice)
+library(lawstat)
+library(outliers)
+library(tidyverse)
+library(lme4)
+library(car)
+library(lmerTest)
+library(MuMIn)
+library(performance)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(gridExtra)
+library(GGally)
+library(plyr)
+library(glmmTMB)
+library(DHARMa)
+library(lubridate)
+library(aweek)
+library(zoo)
+library(rio)
+# library(INLA)
+# library(inlatools)
+# library(brinla)
+```
+
+## Data
+
+```{r}
+
+######################################
+#Import the Czech data into dataframe 'dfD'
+dfD <- readRDS("data/Ddaily_new10.rds")
+# dfD <- readRDS("Ddaily_water.rds")
+
+str(dfD)
+names(dfD)
+
+# [1] "date_name"              "municipality"           "anglers_per_day"       
+# [4] "workplace_closures"     "school_closures"        "stay_home_requirements"
+# [7] "n_unique_day"           "day_of_week"            "weekend"               
+# [10] "pop_2018"               "pop_2019"               "pop_2020"              
+# [13] "pop_2021"         
+```
+
+## Setting alternative lockdown dates
+
+```{r}
+#checking lockdown values
+firstmuni <- first(unique(tt2$municipality))
+oneMuni <- dfD %>% filter (municipality == firstmuni) %>% filter (date_name > "2019-12-31")
+tt2 <- which(oneMuni$date_name > "2020-03-10" & oneMuni$date_name < "2020-05-31")
+
+## replace with new values
+dfDe <- dfD
+dfDe$stay_home_requirements <- 0
+dfDe$stay_home_requirements[which(dfDe$date_name > "2020-03-10" & dfDe$date_name < "2020-05-31")] <- 1
+dfDe$stay_home_requirements[which(dfDe$date_name > "2020-10-23" & dfDe$date_name < "2021-05-20")] <- 1
+
+dfDoriginal <- dfD
+dfD <- dfDe
+```
+
+##Data exploration
+
+```{r}
+# Are there missing values?
+colSums(is.na(dfD))
+
+# OUTLIERS
+
+# Define preferred figure format
+My_theme <- theme(axis.text.y = element_blank(),
+                  axis.ticks.y = element_blank(),
+                  axis.ticks.x=element_blank(),
+                  panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, size = 1),
+                  strip.background = element_rect(fill = "white", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 14),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+# A function for dotplots
+multi_dotplot <- function(filename, Xvar, Yvar){
+  filename %>%
+    ggplot(aes(x = {{Xvar}})) +
+    geom_point(aes(y = {{Yvar}})) +
+    theme_bw() +
+    coord_flip() +
+    labs(x = "Order of Data")}
+
+
+# Are data balanced among levels of the categorical covariates?
+count(dfD$municipality)
+#96 levels
+
+table(dfD$workplace_closures)
+# 0     1     2     3 
+# 85344 14304 47616  4512 
+
+table(dfD$school_closures)
+# 0      1     2     3 
+# 87360 31584 18528 14304 
+
+table(dfD$stay_home_requirements)
+# 0     1 
+# 111360  40416 
+
+table(dfD$day_of_week)
+# Sun  Mon   Tue   Wed   Thu   Fri   Sat 
+# 21600 21696 21696 21696 21696 21696 21696 
+
+table(dfD$weekend)
+# yes    no 
+# 43296 108480 
+
+dfD$year  <- year(dfD$date_name)
+table(dfD$year)
+# 2018  2019  2020  2021  2022 
+# 35040 35040 35136 35040 11520 
+
+dfD$month <- month(dfD$date_name)
+table(dfD$month)
+# 1     2     3     4     5     6     7     8      9     10     11   12 
+# 14880 13536 14880 14400 11904 11520 11904 11904 11520 11904 11520 11904 
+
+# Create variable 'lock' indicating level of lockdown
+dfD$lock <- dplyr::recode(dfD$stay_home_requirements,
+                         "0" = "no",
+                         "1" = "yes")
+dfD$lock <- as.factor(dfD$lock)
+
+
+table(dfD$lock)
+# no    yes 
+# 111360  40416 
+
+
+#CALCULATE NUMBER OF ZEROS IN THE RESPONSE VARIABLES
+
+# What is the percentage of zeros for anglers_per_day?
+
+sum(dfD$anglers_per_day == 0)
+# 137279 zeros
+
+round(sum(dfD$anglers_per_day == 0) * 100 / nrow(dfD),0)
+# 95% zeros - potential risk of zero-inflation
+
+
+#NORMALITY AND HOMOGENEITY OF DEPENDENT VARIABLE(S)
+
+# Frequency polygon plot
+dfD %>% ggplot(aes(anglers_per_day)) +
+  geom_freqpoly(bins = 15) +
+  labs(x = "anglers_per_day", y = "Frequency") +
+  My_theme +
+  theme(panel.border = element_rect(colour = "black", 
+                                    fill=NA, size = 1))
+
+#COLLINEARITY
+# Calculate VIF (for glm)
+round(vif(glm(anglers_per_day ~ weekend * lock,
+                          family = poisson(link = "log"),
+                          data = dfD)),1)
+#  weekend         lock weekend:lock 
+# 1.7          1.8          2.5 
+
+# create variable 'pop' in each year as single column
+df18 <- dplyr::select(filter(dfD, year == 2018), 
+               c(date = date_name, muni = municipality, apd = anglers_per_day, 
+                 unique = n_unique_day, day = day_of_week, weekend, pop = pop_2018,
+                 lock, month, year))
+
+df19 <- dplyr::select(filter(dfD, year == 2019), 
+               c(date = date_name, muni = municipality, apd = anglers_per_day, 
+                 unique = n_unique_day, day = day_of_week, weekend, pop = pop_2019,
+                 lock, month, year))
+
+df20 <- dplyr::select(filter(dfD, year == 2020), 
+               c(date = date_name, muni = municipality, apd = anglers_per_day, 
+                 unique = n_unique_day, day = day_of_week, weekend, pop = pop_2020,
+                 lock, month, year))
+
+df21 <- dplyr::select(filter(dfD, year == 2021), 
+               c(date = date_name, muni = municipality, apd = anglers_per_day, 
+                 unique = n_unique_day, day = day_of_week, weekend, pop = pop_2021,
+                 lock, month, year))
+
+df22 <- dplyr::select(filter(dfD, year == 2022), 
+                      c(date = date_name, muni = municipality, apd = anglers_per_day, 
+                        unique = n_unique_day, day = day_of_week, weekend, pop = pop_2021,
+                        lock, month, year))
+
+dfD1 <-rbind(df18, df19, df20, df21, df22)
+names(dfD1)
+rm(df18, df19, df20, df21, df22)
+
+#PLOT RELATIONSHIPS
+
+# Plot response variable against covariates
+# And check change in no. sonar devices and pop size with year
+par(mfrow=c(2,2), mar=c(5,5,1,1), cex.lab = 1)
+plot(apd ~ pop,  data = dfD1,
+     xlab = "pop", 
+     ylab = "apd",
+     pch = 16, cex = 1.3)
+boxplot(apd ~ weekend, data = dfD1, 
+        xlab = "weekend", 
+        ylab = "apd",
+        range = 0,
+        pch = 16, cex = 1.3, col = "blue")
+boxplot(apd ~ lock, data = dfD1, 
+        xlab = "lock", 
+        ylab = "apd",
+        range = 0,
+        pch = 16, cex = 1.3, col = "green")
+boxplot(unique ~ year, data = dfD1, 
+        xlab = "year", 
+        ylab = "unique",
+        range = 0,
+        pch = 16, cex = 1.3, col = "red2")
+```
+
+## Question
+Did covid lockdown increase number of anglers per day?
+(after adjusting for region, year, season, and
+controlling for temporal changes in the number of sonar devices)
+Also include weekend vs weekday as a fixed factor and interactions with lockdown
+
+## Some data wrangling/housekeeping
+
+```{r}
+
+# Create new variable 'season'
+dfD1$season <- dplyr::recode(dfD1$month,
+                           "12" = "winter", 
+                           "1"  = "winter", 
+                           "2"  = "winter", 
+                           "3"  = "spring", 
+                           "4"  = "spring", 
+                           "5"  = "spring", 
+                           "6"  = "summer", 
+                           "7"  = "summer",
+                           "8"  = "summer",
+                           "9"  = "autumn",
+                           "10" = "autumn",
+                           "11" = "autumn")
+
+table(dfD1$season)
+# autumn spring summer winter 
+# 34944  41184  35328  40320 
+
+# Standardize continuous covariates to avoid numerical problems
+dfD1$uni.std <- (dfD1$unique-mean(dfD1$unique))/sd(dfD1$unique)
+dfD1$pop.std <- (dfD1$pop-mean(dfD1$pop))/sd(dfD1$pop)
+
+# Create variable for phase of covid pandemic
+dfD1 <- dfD1[dfD1$date > "2017-12-31" &
+               dfD1$date < "2022-01-01", ]
+
+# dfD1 <- dfD1 %>%
+#   mutate(phase = case_when(
+#     between(date, as.Date("2017-12-31"), as.Date("2020-04-24")) ~ "Pre",
+#     between(date, as.Date("2020-04-25"), as.Date("2020-10-20")) ~ "During1",
+#     between(date, as.Date("2020-10-21"), as.Date("2020-11-08")) ~ "Post1",
+#     between(date, as.Date("2020-11-09"), as.Date("2021-05-20")) ~ "During2",
+#     # Note a brief break from lockdown from 2020-11-16 to 2020-11-22
+#     between(date, as.Date("2021-05-21"), as.Date("2022-01-01")) ~ "Post2")
+#   )
+
+### or alternative days
+#dfDe$stay_home_requirements[which(dfDe$date_name > "2020-03-10" & dfDe$date_name < "2020-05-31")] <- 1
+#dfDe$stay_home_requirements[which(dfDe$date_name > "2020-10-23" & dfDe$date_name < "2021-05-20")] <- 1
+
+dfD1 <- dfD1 %>%
+  mutate(phase = case_when(
+    between(date, as.Date("2017-12-31"), as.Date("2020-03-09")) ~ "Pre",
+    between(date, as.Date("2020-03-10"), as.Date("2020-05-31")) ~ "During1",
+    between(date, as.Date("2020-06-01"), as.Date("2020-10-23")) ~ "Post1",
+    between(date, as.Date("2020-10-24"), as.Date("2021-05-20")) ~ "During2",
+    # Note a brief break from lockdown from 2020-11-16 to 2020-11-22
+    between(date, as.Date("2021-05-21"), as.Date("2022-01-01")) ~ "Post2")
+  )
+
+
+dfD1$phase <-as.factor(dfD1$phase)
+dfD1$phase <- relevel(dfD1$phase, ref = "Post2")
+dfD1$phase <- relevel(dfD1$phase, ref = "During2")
+dfD1$phase <- relevel(dfD1$phase, ref = "Post1")
+dfD1$phase <- relevel(dfD1$phase, ref = "During1")
+dfD1$phase <- relevel(dfD1$phase, ref = "Pre")
+table(dfD1$phase)
+
+dfD1$weekend <- relevel(dfD1$weekend, ref = "no")
+
+# Pre     During1   Post1   During2   Post2 
+# 81120   17184     1824    18528     21600 
+```
+
+## Fit GLMM 
+
+Include unique sonar devices as an offset (adjust for change in number of devices)
+A high proportion of zeros (i.e. possible zero-inflation)
+Start with Poisson
+Include year and season as random intercept (with pop as random slope)
+Examine interaction of lockdown phase with weekend
+
+```{r}
+
+# Poisson GLMM
+poisson1 <- glmmTMB(apd ~ phase * weekend + pop.std + uni.std +
+                          (1|year) + (1|season) + (1|muni),
+                          family = poisson(link = "log"),
+                          ziformula=~0,
+                          data = dfD1)
+#saveRDS(poisson1, file = "poisson1DenmarkEd.rds")
+
+check_overdispersion(poisson1)   # 0.97 - not overdispersed
+
+# Simulate data using model parameters
+SimPois <- simulateResiduals(fittedModel = poisson1, plot = F)
+
+# Use simulated data to test zero-inflation
+par(mfrow=c(1,1), mar=c(5,5,1,1), cex.lab = 1)
+testZeroInflation(SimPois)
+# No problem with zero-inflation
+
+# Deal with overdispersion with a negative binomial (linear) model
+nbinom1 <- glmmTMB(apd ~ phase * weekend + pop.std + uni.std +
+                         (1|year) + (1|season) + (1|muni),
+                         family = nbinom1(link = "log"),
+                         ziformula=~0,
+                         data = dfD1)
+#saveRDS(nbinom1, file = "nbinom1DenmarkEd.rds")
+
+# Compare  models with AIC
+round(AIC(poisson1, nbinom1),0)
+
+#          df  AIC
+# poisson1 15 49933
+# nbinom1  16 49832
+
+#new data (edited dates)
+#          df   AIC
+# poisson1 15 49928
+# nbinom1  16 49828
+
+check_overdispersion(nbinom1)  #0.92 No overdispersion detected
+##ASKCarl: #Error: Model must be from Poisson or binomial family.
+
+# Simulate data using model parameters
+SimNB1 <- simulateResiduals(fittedModel = nbinom1, plot = F)
+
+# Examine zero-inflation
+par(mfrow=c(1,1), mar=c(5,5,1,1), cex.lab = 1)
+testZeroInflation(SimNB1)
+# No problem with zero-inflation
+
+# Model 'nbinom1' is the best-fitting model that is not overdispersed
+```
+
+## MODEL VALIDATION
+
+```{r}
+#Obtain residuals and fitted values
+Res <- resid(nbinom1)
+Fit <- fitted(nbinom1)
+
+# Plot residuals against fitted values
+par(mfrow = c(2,3), mar = c(5,5,2,2))
+plot(x = Fit,
+     y = Res,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     pch = 16, cex = 1.5)
+abline(h = 0, lty = 2)
+abline(v = 0, lty = 2)
+
+# Plot the residuals vs pop
+plot(x = dfD1$pop.std,
+     y = Res,
+     xlab = "population size",
+     ylab = "Residuals",
+     pch = 16, cex = 1.5)
+abline(h = 0, lty = 2)
+abline(v = 0, lty = 2)
+
+boxplot(Res ~ phase, 
+        xlab = "phase",
+        ylab = "Residuals",
+        range = 0,
+        data = dfD1)
+abline(h = 0, lty = 2)
+
+# Plot the residuals vs weekend
+boxplot(Res ~ weekend, 
+        xlab = "weekend",
+        ylab = "Residuals",
+        range = 0,
+        data = dfD1)
+abline(h = 0, lty = 2)
+
+# Plot the residuals vs season
+boxplot(Res ~ season, 
+        xlab = "season",
+        ylab = "Residuals",
+        range = 0,
+        data = dfD1)
+abline(h = 0, lty = 2)
+
+# Plot the residuals vs year
+boxplot(Res ~ year, 
+        xlab = "year",
+        ylab = "Residuals",
+        range = 0,
+        data = dfD1)
+abline(h = 0, lty = 2)
+
+par(mfrow = c(1,1), mar = c(5,5,2,2))
+boxplot(Res ~ muni, 
+        xlab = "muni",
+        ylab = "Residuals",
+        range = 0,
+        data = dfD1)
+abline(h = 0, lty = 2)
+
+
+# Use 'check_model'
+# check_model(nbinom1)
+```
+
+##Plotting model results 
+
+```{r}
+# Plotting theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, 
+                                              color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 14),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+# Plot fixed effects
+set_theme(
+  base = theme_bw(),
+  axis.textsize = 1)
+plot_model(nbinom1,
+           vline.color = "green4", 
+           sort.est = FALSE,
+           title = "Denmark",
+           show.zeroinf = T,
+           show.values = TRUE)
+
+# Random effects
+set_theme(
+  base = theme_bw(),
+  axis.textsize = 1)
+plot_model(nbinom1,
+           show.zeroinf = T,
+           vline.color = "green4",
+           title = "Denmark",
+           type = "re")
+
+# Define preferred figure format
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, size = 1),
+                  strip.background = element_rect(fill = "white", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 14),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+plot_model(nbinom1,
+           type = "pred", 
+           terms = c("pop.std", "weekend", "phase"),
+           colors = c("blue", "firebrick2"),
+           show.data = F,
+           pred.type = c("fe"),
+           title = "",
+           axis.title = c("Standardised population size", 
+                          "SB users / day / municipality"),
+           show.legend = FALSE,
+           show.values = F) + My_theme +
+  scale_y_continuous(limits = c(0, 0.3)) + 
+  scale_x_continuous(limits = c(-0.25, 2.25))
+
+
+# Model summary
+summary(nbinom1)
+
+#Summarise neatly
+tab_model(nbinom1,
+          show.zeroinf = F,
+          # pred.labels = c("Intercept", "Weekend (Yes)", "Phase (Dur)", "Phase (Post)",
+          #                 "Weekend (Yes): Phase (Dur)", "Weekend (Yes): Phase (Post)"),
+          dv.labels = c("Negative binomial GLMM (Danish data)"),
+          string.pred = "Coefficient",
+          string.ci = "Conf. Int (95%)",
+          string.p = "P-value",
+          p.style = c("numeric"),
+          emph.p = FALSE,
+          transform = NULL,
+          file = "DenmarkFinal.doc")
+
+###############################
+
+# Plot model
+round(range(dfD1$pop.std),2)
+
+MyData <- expand.grid(
+  phase = levels(dfD1$phase),
+  weekend = levels(dfD1$weekend),
+  pop.std = seq(-0.8,6, length = 25),
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(nbinom1)$cond
+MyData$Pred <- exp(X %*% fixef(nbinom1)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE    <- sqrt(diag(X %*%vcov(nbinom1)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+#Back-standardize population size to natural scale
+MyData$pop <- (MyData$pop.std * sd(dfD1$pop) + mean(dfD1$pop))/10000
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Add labels
+label_phase <- c(Pre = "Pre lockdown", 
+                 During1 = "Lockdown 1",
+                 Post1 = "Post lockdown 1", 
+                 During2 = "Lockdown 2", 
+                 Post2 = "Post lockdown 2")
+
+# Plot
+DenmarkEditedDates <- ggplot(MyData, aes(x = pop, y = Pred, group = weekend, fill = weekend)) +
+  ggtitle("Denmark") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  # geom_jitter(data = dfD1,
+  #             aes(y = apd, x = (pop/10000), group = weekend, col = weekend),
+  #             shape = 16, size = 0.5,
+  #             height = 0.5, width = 30, alpha = 0.2) +
+  xlab("Population size (tens of thousands)") + 
+  ylab("Sonar buoy users per day per municipality") +
+  ylim(0,2) + xlim(0,50) +
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  geom_line(data = MyData, aes(x = pop, y = Pred, color = weekend, 
+                               group = weekend), size = 1)+
+  scale_color_manual(values=c("slateblue1", "firebrick1"), 
+                     name="",
+                     breaks=c("no", "yes"),
+                     labels=c("Weekday", "Weekend"))+
+  My_theme +
+  geom_ribbon(data = MyData,aes(x = pop, ymax = SeUp, 
+                                ymin = SeLo), alpha = 0.3)+
+  scale_fill_manual(values=c("slateblue1", "firebrick1"), 
+                    name="",
+                    breaks=c("no", "yes"),
+                    labels=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase, scales = "fixed", space = "fixed",
+             labeller=labeller (phase = label_phase)) +
+  theme(strip.text = element_text(size = 12, face="italic")) +
+  theme(legend.position = "bottom")
+
+DenmarkEditedDates
+
+#save(DenmarkEditedDates, file = "DenmarkPlot.RData")
+
+```

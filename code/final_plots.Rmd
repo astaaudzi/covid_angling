@@ -1,0 +1,1753 @@
+---
+author: "Fernando Mateos-González"
+date: Last update "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    code_download: true
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+  md_document:
+    variant: markdown_github
+  pdf_document:
+    toc: yes
+title: "Final plots - COVID"
+# title: "Kaunas Water Reservoir - Fishing data from Deeper"
+# author: "Fernando Mateos-González"
+# date: "`r format(Sys.time(), '%d %B, %Y')`"
+# output:
+#   word_document:
+#     toc: no
+#     fig_caption: true
+#     reference_docx: styleword.docx
+knit: (function(inputFile, encoding) {
+  
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "output") })
+editor_options: 
+  chunk_output_type: console
+---
+# Introduction
+
+Final plots for PNAS manus. Adapted for rmd from Carl Smith's analyses in Covid_Anglers(1)>covid_angling 
+
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(fig.width=6, fig.asp = 0.618, fig.path='output/figs/',
+                      echo=TRUE, warning=FALSE, message=FALSE, cache= FALSE)
+  
+
+options(allow_html_in_all_outputs=TRUE)
+```
+
+# Library
+
+```{r library}
+# install.packages("pacman")
+# writeLines(pacman::p_lib(), "~/Desktop/list_of_R_packages.csv") # to quickly back up packages
+# remotes::install_github("ThinkR-open/remedy")
+
+pacman::p_load(rio, tidyverse,janitor, data.table, here, sf, readxl, lubridate, leaflet, zoo, gghighlight, lme4,
+               patchwork, # two plots side by side
+               scales # for label_wrap
+               
+               ) # just add needed packages to this line and Pacman will install and load them.
+
+
+```
+
+# Data
+
+```{r}
+pop_cz <- import( here::here ("data", "plots","pop_lock_cz.rds" ))
+
+pop_den <- import( here::here("data", "plots","pop_lock_den.rds"))
+
+pop_ger <- import( here::here("data", "plots","pop_lock_ger.rds"))
+
+pop_lit <- import( here::here("data", "plots","pop_lock_lit.rds"))
+
+lock_cz <- import( here::here ("data", "plots","lock_cz.rds" ))
+
+lock_den <- import( here::here("data", "plots","lock_den.rds"))
+
+lock_ger <- import( here::here("data", "plots","lock_ger.rds"))
+
+lock_lit <- import( here::here("data", "plots","lock_lit.rds"))
+
+
+
+
+
+```
+
+
+# Pop plot CZ
+
+Figure 2 – figure with effort across the population levels. I suggest we do that only for one phase – e.g. prelockdown or last phase. In this figure we only want to show population effect
+
+```{r}
+
+pre_cz <- pop_cz %>% 
+  dplyr::filter(phase== "Pre lockdown")
+
+
+# Last lockdown looks weird, better pre.
+# post_cz <-pop_cz %>% 
+#     dplyr::filter(phase== "Post lockdown 2")
+
+# Set theme
+My_theme <- theme(panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 12, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Add labels
+# label_phase <- c(Pre = "Pre lockdown", 
+#                  During1 = "Lockdown 1",
+#                  Post1 = "Post lockdown 1", 
+#                  During2 = "Lockdown 2", 
+#                  Post2 = "Post lockdown 2")
+
+# Plot
+ggplot(pre_cz, aes(x = pop, y = Pred, group = weekend, fill = weekend)) +
+  ggtitle("Czech Republic") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("Population size (tens of thousands)") +
+  ylab("Sonar buoy users per day per municipality") +
+  ylim(0,8) + xlim(30,130) +
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  geom_ribbon(data = pre_cz,aes(x = pop, ymax = SeUp,
+                                ymin = SeLo), alpha = 0.3)+
+  scale_fill_manual(values=c("dodgerblue2", "firebrick2"),
+                    name="",
+                    breaks=c("Weekday", "Weekend"),
+                    labels=c("Weekday", "Weekend"))+
+  geom_line(data = pre_cz, aes(x = pop, y = Pred, color = weekend,
+                               group = weekend), size = 1)+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"),
+                     labels=c("Weekday", "Weekend"))+
+  My_theme +
+  # facet_grid(. ~ phase, scales = "fixed", space = "fixed",
+  #                     labeller=labeller (phase = label_phase)) +
+  # theme(strip.text = element_text(size = 12, face="italic")) +
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(legend.position = "none")
+
+# ggsave(here::here("output", "pnas_plots","pre_pop_cz.png"))
+
+
+
+```
+
+
+
+
+
+# Pop plot Denmark
+
+```{r}
+
+pre_den <- pop_den %>% 
+  dplyr::filter(phase== "Pre lockdown")
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 12, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Add labels
+label_phase <- c(Pre = "Pre lockdown", 
+                 During1 = "Lockdown 1",
+                 Post1 = "Post lockdown 1", 
+                 During2 = "Lockdown 2", 
+                 Post2 = "Post lockdown 2")
+
+# Plot
+ggplot(pre_den, aes(x = pop, y = Pred, group = weekend, fill = weekend)) +
+  ggtitle("Denmark") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  # geom_jitter(data = dfD1,
+  #             aes(y = apd, x = (pop/10000), group = weekend, col = weekend),
+  #             shape = 16, size = 0.5,
+  #             height = 0.5, width = 30, alpha = 0.2) +
+  xlab("Population size (tens of thousands)") + 
+  ylab("Sonar buoy users per day per municipality") +
+  ylim(0,0.8) + xlim(0,34) +
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  My_theme +
+  geom_ribbon(data = pre_den,aes(x = pop, ymax = SeUp, 
+                                ymin = SeLo), alpha = 0.3)+
+  scale_fill_manual(values=c("dodgerblue2", "firebrick2"), 
+                    name="",
+                    breaks=c("Weekday", "Weekend"),
+                    labels=c("Weekday", "Weekend"))+
+  geom_line(data = pre_den, aes(x = pop, y = Pred, color = weekend, 
+                               group = weekend), size = 1)+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"), 
+                     name="",
+                     breaks=c("Weekday", "Weekend"),
+                     labels=c("Weekday", "Weekend"))+
+  # facet_grid(. ~ phase, scales = "fixed", space = "fixed",
+  #            labeller=labeller (phase = label_phase)) +
+  # theme(strip.text = element_text(size = 12, face="italic")) +
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(legend.position = "none")
+
+
+
+```
+
+# Pop lock Germany
+
+```{r}
+
+pre_ger <- pop_ger %>% 
+  dplyr::filter(phase== "Pre lockdown")
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 12, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+# Plot
+ggplot(pre_ger, aes(x = pop, y = Pred, group = weekend, fill = weekend)) +
+  ggtitle("Germany") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("Population size (thousands)") + 
+  ylab("Sonar buoy users per day per municipality") +
+  ylim(0,0.4) + xlim(0,5) +
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  My_theme +
+  geom_ribbon(data = pre_ger,aes(x = pop, ymax = SeUp, 
+                                ymin = SeLo), alpha = 0.3)+
+  scale_fill_manual(values=c("dodgerblue2", "firebrick2"), 
+                    name="",
+                    breaks=c("Weekday", "Weekend"),
+                    labels=c("Weekday", "Weekend"))+
+  geom_line(data = pre_ger, aes(x = pop, y = Pred, color = weekend, 
+                               group = weekend), size = 1)+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"), 
+                     name="",
+                     breaks=c("Weekday", "Weekend"),
+                     labels=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(legend.position = "none")
+
+
+```
+
+# Pop lock Lithuania
+
+```{r}
+
+
+pre_lit <- pop_lit %>% 
+  dplyr::filter(phase== "Pre lockdown")
+
+# Plot
+ggplot(pre_lit, aes(x = pop, y = Pred, group = weekend, fill = weekend)) +
+  ggtitle("Lithuania") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("Population size (tens of thousands)") + 
+  ylab("Sonar buoy users per day per municipality") +
+  ylim(0,11) + xlim(0,60) +
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  geom_ribbon(data = pre_lit,aes(x = pop, ymax = SeUp,
+                                ymin = SeLo), alpha = 0.3)+
+  scale_fill_manual(values=c("dodgerblue2", "firebrick2"),
+                    name="",
+                    breaks=c("Weekday", "Weekend"),
+                    labels=c("Weekday", "Weekend"))+
+  geom_line(data = pre_lit, aes(x = pop, y = Pred, color = weekend,
+                               group = weekend), size = 1)+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"),
+                     labels=c("Weekday", "Weekend"))+
+  My_theme +
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(legend.position = "none")
+
+
+
+```
+
+# Lock plot CZ
+
+## Scaled to prelockdown weekday
+
+```{r}
+model_cz <- readRDS(here::here("data", "plots", "model_cz.rds"))
+
+dfC1 <- readRDS(here::here("data", "plots", "dfC1.rds"))
+
+# Plot model
+round(range(dfC1$pop.std),2) #-2.36  3.50
+
+MyData <- expand.grid(
+  phase = levels(dfC1$phase),
+  weekend = levels(dfC1$weekend),
+  # pop.std = seq(-1.38, 1.86, length = 25),
+  pop.std = 0,
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(model_cz)$cond
+MyData$Pred <- exp(X %*% fixef(model_cz)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE <- sqrt(diag(X %*%vcov(model_cz)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+
+# Just weekdays
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'no') %>%
+  dplyr::select(Pred)
+# Pred  
+# 0.8942193 
+
+MyDataN <- MyData[which(MyData$weekend == "no"),]
+MyDataN$Pred1 <- MyDataN$Pred/0.8942193 #Pre-covid intercept for weekday
+MyDataN$PredS <- MyDataN$Pred1/MyDataN$Pred
+MyDataN$SeUp1 <- MyDataN$SeUp*MyDataN$PredS
+MyDataN$SeLo1 <- MyDataN$SeLo*MyDataN$PredS
+
+# Just weekends
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'yes') %>%
+  dplyr::select(Pred)
+# Pred    
+# 1.473591 
+
+MyDataY <- MyData[which(MyData$weekend == "yes"),]
+MyDataY$Pred1 <- MyDataY$Pred/0.8942193 #Pre-covid intercept for weekday
+MyDataY$PredS <- MyDataY$Pred1/MyDataY$Pred
+MyDataY$SeUp1 <- MyDataY$SeUp*MyDataY$PredS
+MyDataY$SeLo1 <- MyDataY$SeLo*MyDataY$PredS
+
+# Combine weekends and weekdays
+MyDataNew  <- rbind(MyDataY,MyDataN)
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Create new labels
+MyDataNew$phase <- dplyr::recode(MyDataNew$phase,
+                                 "Pre" = "Pre lockdown",
+                                 "During1" = "Lockdown 1",
+                                 "Post1" = "Post lockdown 1",
+                                 "During2" = "Lockdown 2",
+                                 "Post2" = "Post lockdown 2")
+
+MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
+                                   "no" = "Weekday",
+                                   "yes" = "Weekend")
+
+# Newplot
+ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+  ggtitle("Czech Republic") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("") + 
+  ylab("Standardised fishing effort per administrative unit") +
+  ylim(0,8) + 
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(plot.margin = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  theme(plot.background = element_rect(colour = "white", size = 1),
+        plot.margin = margin(t = 10, 
+                             r = 10,  
+                             b = 10,  
+                             l = 10))+
+  My_theme +
+  geom_pointrange(data = MyDataNew, aes(x = weekend, y = Pred1, ymin = SeLo1,
+                                        ymax = SeUp1, group = weekend, col = weekend))+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position = "none")
+
+theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+
+
+```
+
+
+## Scaled to prelockdown 
+
+```{r}
+model_cz <- readRDS(here::here("data", "plots", "model_cz.rds"))
+
+dfC1 <- readRDS(here::here("data", "plots", "dfC1.rds"))
+
+# Plot model
+round(range(dfC1$pop.std),2) #-2.36  3.50
+
+MyData <- expand.grid(
+  phase = levels(dfC1$phase),
+  weekend = levels(dfC1$weekend),
+  # pop.std = seq(-1.38, 1.86, length = 25),
+  pop.std = 0,
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(model_cz)$cond
+MyData$Pred <- exp(X %*% fixef(model_cz)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE <- sqrt(diag(X %*%vcov(model_cz)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+
+# Just weekdays
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'no') %>%
+  dplyr::select(Pred)
+# Pred  
+# 0.8942193 
+
+MyDataN <- MyData[which(MyData$weekend == "no"),]
+MyDataN$Pred1 <- MyDataN$Pred/0.8942193 #Pre-covid intercept for weekday
+MyDataN$PredS <- MyDataN$Pred1/MyDataN$Pred
+MyDataN$SeUp1 <- MyDataN$SeUp*MyDataN$PredS
+MyDataN$SeLo1 <- MyDataN$SeLo*MyDataN$PredS
+
+# Just weekends
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'yes') %>%
+  dplyr::select(Pred)
+# Pred    
+# 1.473591 
+
+MyDataY <- MyData[which(MyData$weekend == "yes"),]
+MyDataY$Pred1 <- MyDataY$Pred/1.473591  
+MyDataY$PredS <- MyDataY$Pred1/MyDataY$Pred
+MyDataY$SeUp1 <- MyDataY$SeUp*MyDataY$PredS
+MyDataY$SeLo1 <- MyDataY$SeLo*MyDataY$PredS
+
+# Combine weekends and weekdays
+MyDataNew  <- rbind(MyDataY,MyDataN)
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Create new labels
+MyDataNew$phase <- dplyr::recode(MyDataNew$phase,
+                                 "Pre" = "Pre lockdown",
+                                 "During1" = "Lockdown 1",
+                                 "Post1" = "Post lockdown 1",
+                                 "During2" = "Lockdown 2",
+                                 "Post2" = "Post lockdown 2")
+
+MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
+                                   "no" = "Weekday",
+                                   "yes" = "Weekend")
+
+# Newplot
+ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+  ggtitle("Czech Republic") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("") + 
+  ylab("Standardised fishing effort per administrative unit") +
+  ylim(0,6) + 
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(plot.margin = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  theme(plot.background = element_rect(colour = "white", size = 1),
+        plot.margin = margin(t = 10, 
+                             r = 10,  
+                             b = 10,  
+                             l = 10))+
+  My_theme +
+  geom_pointrange(data = MyDataNew, aes(x = weekend, y = Pred1, ymin = SeLo1,
+                                        ymax = SeUp1, group = weekend, col = weekend))+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position = "none")
+
+theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+
+
+```
+
+
+# Lock plot Denmark
+
+## Scaled to prelockdown weekday
+
+```{r}
+
+model_den <- readRDS(here::here("data", "plots", "nbinom1DenmarkEd.rds"))
+ 
+dfD1 <-readRDS(here::here("data", "plots", "dfD1.rds")) 
+
+# Plot model
+round(range(dfD1$pop.std),2)
+
+MyData <- expand.grid(
+  phase = levels(dfD1$phase),
+  weekend = levels(dfD1$weekend),
+  # pop.std = seq(-0.8,6, length = 25),
+  pop.std = 0,
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(model_den)$cond
+MyData$Pred <- exp(X %*% fixef(model_den)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE    <- sqrt(diag(X %*%vcov(model_den)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+
+# Just weekdays
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'no') %>%
+  dplyr::select(Pred)
+# Pred  
+# 0.02946025 
+
+MyDataN <- MyData[which(MyData$weekend == "no"),]
+MyDataN$Pred1 <- MyDataN$Pred/0.02946025 #Pre-covid intercept for weekday
+MyDataN$PredS <- MyDataN$Pred1/MyDataN$Pred
+MyDataN$SeUp1 <- MyDataN$SeUp*MyDataN$PredS
+MyDataN$SeLo1 <- MyDataN$SeLo*MyDataN$PredS
+
+# Just weekends
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'yes') %>%
+  dplyr::select(Pred)
+# Pred    
+# 0.05800698 
+
+MyDataY <- MyData[which(MyData$weekend == "yes"),]
+MyDataY$Pred1 <- MyDataY$Pred/0.02946025 #Pre-covid intercept for weekday
+MyDataY$PredS <- MyDataY$Pred1/MyDataY$Pred
+MyDataY$SeUp1 <- MyDataY$SeUp*MyDataY$PredS
+MyDataY$SeLo1 <- MyDataY$SeLo*MyDataY$PredS
+
+# Combine weekends and weekdays
+MyDataNew  <- rbind(MyDataY,MyDataN)
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Create new labels
+MyDataNew$phase <- dplyr::recode(MyDataNew$phase,
+                                 "Pre" = "Pre lockdown",
+                                 "During1" = "Lockdown 1",
+                                 "Post1" = "Post lockdown 1",
+                                 "During2" = "Lockdown 2",
+                                 "Post2" = "Post lockdown 2")
+
+MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
+                                   "no" = "Weekday",
+                                   "yes" = "Weekend")
+
+# Newplot
+ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+  ggtitle("Denmark") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("") + 
+  ylab("Standardised fishing effort per administrative unit") +
+  ylim(0,4) + 
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(plot.margin = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  theme(plot.background = element_rect(colour = "white", size = 1),
+        plot.margin = margin(t = 10, 
+                             r = 10,  
+                             b = 10,  
+                             l = 10))+
+  My_theme +
+  geom_pointrange(data = MyDataNew, aes(x = weekend, y = Pred1, ymin = SeLo1,
+                                        ymax = SeUp1, group = weekend, col = weekend))+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position = "none")
+
+theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+
+
+
+
+
+```
+
+## Scaled to prelockdown 
+
+```{r}
+
+model_den <- readRDS(here::here("data", "plots", "nbinom1DenmarkEd.rds"))
+ 
+dfD1 <-readRDS(here::here("data", "plots", "dfD1.rds")) 
+
+# Plot model
+round(range(dfD1$pop.std),2)
+
+MyData <- expand.grid(
+  phase = levels(dfD1$phase),
+  weekend = levels(dfD1$weekend),
+  # pop.std = seq(-0.8,6, length = 25),
+  pop.std = 0,
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(model_den)$cond
+MyData$Pred <- exp(X %*% fixef(model_den)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE    <- sqrt(diag(X %*%vcov(model_den)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+
+# Just weekdays
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'no') %>%
+  dplyr::select(Pred)
+# Pred  
+# 0.02946025 
+
+MyDataN <- MyData[which(MyData$weekend == "no"),]
+MyDataN$Pred1 <- MyDataN$Pred/0.02946025 #Pre-covid intercept for weekday
+MyDataN$PredS <- MyDataN$Pred1/MyDataN$Pred
+MyDataN$SeUp1 <- MyDataN$SeUp*MyDataN$PredS
+MyDataN$SeLo1 <- MyDataN$SeLo*MyDataN$PredS
+
+# Just weekends
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'yes') %>%
+  dplyr::select(Pred)
+# Pred    
+# 0.05800698 
+
+MyDataY <- MyData[which(MyData$weekend == "yes"),]
+MyDataY$Pred1 <- MyDataY$Pred/0.05800698  #Pre-covid intercept for weekend
+MyDataY$PredS <- MyDataY$Pred1/MyDataY$Pred
+MyDataY$SeUp1 <- MyDataY$SeUp*MyDataY$PredS
+MyDataY$SeLo1 <- MyDataY$SeLo*MyDataY$PredS
+
+# Combine weekends and weekdays
+MyDataNew  <- rbind(MyDataY,MyDataN)
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Create new labels
+MyDataNew$phase <- dplyr::recode(MyDataNew$phase,
+                                 "Pre" = "Pre lockdown",
+                                 "During1" = "Lockdown 1",
+                                 "Post1" = "Post lockdown 1",
+                                 "During2" = "Lockdown 2",
+                                 "Post2" = "Post lockdown 2")
+
+MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
+                                   "no" = "Weekday",
+                                   "yes" = "Weekend")
+
+# Newplot
+ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+  ggtitle("Denmark") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("") + 
+  ylab("Standardised fishing effort per administrative unit") +
+  ylim(0,2.5) + 
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(plot.margin = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  theme(plot.background = element_rect(colour = "white", size = 1),
+        plot.margin = margin(t = 10, 
+                             r = 10,  
+                             b = 10,  
+                             l = 10))+
+  My_theme +
+  geom_pointrange(data = MyDataNew, aes(x = weekend, y = Pred1, ymin = SeLo1,
+                                        ymax = SeUp1, group = weekend, col = weekend))+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position = "none")
+
+theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+
+
+
+
+
+```
+
+# Lock Germany
+
+## Scaled to prelockdown weekday
+
+```{r}
+
+
+model_ger <- readRDS(here::here("data", "plots", "model_ger.rds"))
+
+dfG1 <- readRDS(here::here("data", "plots", "dfG1.rds"))
+
+
+# Set theme
+My_theme <- theme(axis.text.y = element_blank(),
+                  axis.ticks.x = element_blank(),
+                  panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, 
+                                              color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 12, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+# Plot model
+
+round(range(dfG1$pop.std),2) #-0.7  5.9
+
+MyData <- expand.grid(
+  phase = levels(dfG1$phase),
+  weekend = levels(dfG1$weekend),
+  # pop.std = seq(-0.7, 5.9, length = 25),
+  pop.std = 0,
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(model_ger)$cond
+MyData$Pred <- exp(X %*% fixef(model_ger)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE <- sqrt(diag(X %*%vcov(model_ger)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+
+
+# Just weekdays
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'no') %>%
+  dplyr::select(Pred)
+# Pred  
+# 0.1139426 
+
+MyDataN <- MyData[which(MyData$weekend == "no"),]
+MyDataN$Pred1 <- MyDataN$Pred/0.1139426 #Pre-covid intercept for weekday
+MyDataN$PredS <- MyDataN$Pred1/MyDataN$Pred
+MyDataN$SeUp1 <- MyDataN$SeUp*MyDataN$PredS
+MyDataN$SeLo1 <- MyDataN$SeLo*MyDataN$PredS
+
+# Just weekends
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'yes') %>%
+  dplyr::select(Pred)
+# Pred    
+# 0.1993761 
+
+MyDataY <- MyData[which(MyData$weekend == "yes"),]
+MyDataY$Pred1 <- MyDataY$Pred/0.1139426 #Pre-covid intercept for weekday
+MyDataY$PredS <- MyDataY$Pred1/MyDataY$Pred
+MyDataY$SeUp1 <- MyDataY$SeUp*MyDataY$PredS
+MyDataY$SeLo1 <- MyDataY$SeLo*MyDataY$PredS
+
+# Combine weekends and weekdays
+MyDataNew  <- rbind(MyDataY,MyDataN)
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Create new labels
+MyDataNew$phase <- dplyr::recode(MyDataNew$phase,
+                                 "Pre" = "Pre lockdown",
+                                 "During1" = "Lockdown 1",
+                                 "Post1" = "Post lockdown 1",
+                                 "During2" = "Lockdown 2",
+                                 "Post2" = "Post lockdown 2")
+
+MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
+                                   "no" = "Weekday",
+                                   "yes" = "Weekend")
+
+# Newplot
+ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+  ggtitle("Germany") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("") + 
+  ylab("Standardised fishing effort per administrative unit") +
+  ylim(0,7) + 
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(plot.margin = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  theme(plot.background = element_rect(colour = "white", size = 1),
+        plot.margin = margin(t = 10, 
+                             r = 10,  
+                             b = 10,  
+                             l = 10))+
+  My_theme +
+  geom_pointrange(data = MyDataNew, aes(x = weekend, y = Pred1, ymin = SeLo1,
+                                        ymax = SeUp1, group = weekend, col = weekend))+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position = "none")
+
+theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+```
+
+## Scaled to prelockdown 
+
+```{r}
+
+
+model_ger <- readRDS(here::here("data", "plots", "model_ger.rds"))
+
+dfG1 <- readRDS(here::here("data", "plots", "dfG1.rds"))
+
+
+# Set theme
+My_theme <- theme(axis.text.y = element_blank(),
+                  axis.ticks.x = element_blank(),
+                  panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, 
+                                              color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 12, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+# Plot model
+
+round(range(dfG1$pop.std),2) #-0.7  5.9
+
+MyData <- expand.grid(
+  phase = levels(dfG1$phase),
+  weekend = levels(dfG1$weekend),
+  # pop.std = seq(-0.7, 5.9, length = 25),
+  pop.std = 0,
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(model_ger)$cond
+MyData$Pred <- exp(X %*% fixef(model_ger)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE <- sqrt(diag(X %*%vcov(model_ger)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+
+
+# Just weekdays
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'no') %>%
+  dplyr::select(Pred)
+# Pred  
+# 0.1139426 
+
+MyDataN <- MyData[which(MyData$weekend == "no"),]
+MyDataN$Pred1 <- MyDataN$Pred/0.1139426 #Pre-covid intercept for weekday
+MyDataN$PredS <- MyDataN$Pred1/MyDataN$Pred
+MyDataN$SeUp1 <- MyDataN$SeUp*MyDataN$PredS
+MyDataN$SeLo1 <- MyDataN$SeLo*MyDataN$PredS
+
+# Just weekends
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'yes') %>%
+  dplyr::select(Pred)
+# Pred    
+# 0.1993761 
+
+MyDataY <- MyData[which(MyData$weekend == "yes"),]
+MyDataY$Pred1 <- MyDataY$Pred/0.1993761 #Pre-covid intercept for weekend
+MyDataY$PredS <- MyDataY$Pred1/MyDataY$Pred
+MyDataY$SeUp1 <- MyDataY$SeUp*MyDataY$PredS
+MyDataY$SeLo1 <- MyDataY$SeLo*MyDataY$PredS
+
+# Combine weekends and weekdays
+MyDataNew  <- rbind(MyDataY,MyDataN)
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Create new labels
+MyDataNew$phase <- dplyr::recode(MyDataNew$phase,
+                                 "Pre" = "Pre lockdown",
+                                 "During1" = "Lockdown 1",
+                                 "Post1" = "Post lockdown 1",
+                                 "During2" = "Lockdown 2",
+                                 "Post2" = "Post lockdown 2")
+
+MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
+                                   "no" = "Weekday",
+                                   "yes" = "Weekend")
+
+# Newplot
+ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+  ggtitle("Germany") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("") + 
+  ylab("Standardised fishing effort per administrative unit") +
+  ylim(0,4.5) + 
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(plot.margin = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  theme(plot.background = element_rect(colour = "white", size = 1),
+        plot.margin = margin(t = 10, 
+                             r = 10,  
+                             b = 10,  
+                             l = 10))+
+  My_theme +
+  geom_pointrange(data = MyDataNew, aes(x = weekend, y = Pred1, ymin = SeLo1,
+                                        ymax = SeUp1, group = weekend, col = weekend))+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position = "none")
+
+theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+```
+
+# Lock Lithuania
+
+## Scaled to prelockdown weekday
+
+```{r}
+
+###############################
+
+model_lit <- readRDS(here::here("data", "plots", "model_lit.rds"))
+
+dfL1 <- readRDS(here::here("data", "plots", "dfL1.rds"))
+
+# Plot model
+MyData <- expand.grid(
+  phase = levels(dfL1$phase),
+  weekend = levels(dfL1$weekend),
+  pop.std = 0,
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(model_lit)$cond
+MyData$Pred <- exp(X %*% fixef(model_lit)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE    <- sqrt(diag(X %*%vcov(model_lit)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+
+# Just weekdays
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'no') %>%
+  dplyr::select(Pred)
+# Pred  
+# 0.4393363 
+
+MyDataN <- MyData[which(MyData$weekend == "no"),]
+MyDataN$Pred1 <- MyDataN$Pred/0.4393363 #Pre-covid intercept for weekday
+MyDataN$PredS <- MyDataN$Pred1/MyDataN$Pred
+MyDataN$SeUp1 <- MyDataN$SeUp*MyDataN$PredS
+MyDataN$SeLo1 <- MyDataN$SeLo*MyDataN$PredS
+
+# Just weekends
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'yes') %>%
+  dplyr::select(Pred)
+# Pred    
+# 1.245898 
+
+MyDataY <- MyData[which(MyData$weekend == "yes"),]
+MyDataY$Pred1 <- MyDataY$Pred/0.4393363 #Pre-covid intercept for weekday
+MyDataY$PredS <- MyDataY$Pred1/MyDataY$Pred
+MyDataY$SeUp1 <- MyDataY$SeUp*MyDataY$PredS
+MyDataY$SeLo1 <- MyDataY$SeLo*MyDataY$PredS
+
+# Combine weekends and weekdays
+MyDataNew  <- rbind(MyDataY,MyDataN)
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Create new labels
+MyDataNew$phase <- dplyr::recode(MyDataNew$phase,
+                              "Pre" = "Pre lockdown",
+                              "During1" = "Lockdown 1",
+                              "Post1" = "Post lockdown 1",
+                              "During2" = "Lockdown 2",
+                              "Post2" = "Post lockdown 2")
+
+MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
+                                "no" = "Weekday",
+                                "yes" = "Weekend")
+
+# Newplot
+ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+  ggtitle("Lithuania") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("") + 
+  ylab("Standardised fishing effort per administrative unit") +
+  ylim(0,12.5) + 
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(plot.margin = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  theme(plot.background = element_rect(colour = "white", size = 1),
+        plot.margin = margin(t = 10, 
+                             r = 10,  
+                             b = 10,  
+                             l = 10))+
+  My_theme +
+  geom_pointrange(data = MyDataNew, aes(x = weekend, y = Pred1, ymin = SeLo1,
+                                     ymax = SeUp1, group = weekend, col = weekend))+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position = "none")
+
+theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+```
+
+
+## Scaled to prelockdown
+
+```{r}
+
+###############################
+
+model_lit <- readRDS(here::here("data", "plots", "model_lit.rds"))
+
+dfL1 <- readRDS(here::here("data", "plots", "dfL1.rds"))
+
+# Plot model
+MyData <- expand.grid(
+  phase = levels(dfL1$phase),
+  weekend = levels(dfL1$weekend),
+  pop.std = 0,
+  uni.std = 0)
+head(MyData)
+tail(MyData)
+
+X <- model.matrix(~ phase * weekend + pop.std + uni.std, data = MyData)
+
+#Calculate predicted values
+MyData$eta  <- X %*% fixef(model_lit)$cond
+MyData$Pred <- exp(X %*% fixef(model_lit)$cond)
+
+#Calculate standard errors (SE) for predicted values
+MyData$SE    <- sqrt(diag(X %*%vcov(model_lit)$cond %*% t(X)))
+MyData$SeUp  <- exp(MyData$eta + 1.96 *MyData$SE) 
+MyData$SeLo  <- exp(MyData$eta - 1.96 *MyData$SE) 
+
+
+# Just weekdays
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'no') %>%
+  dplyr::select(Pred)
+# Pred  
+# 0.4393363 
+
+MyDataN <- MyData[which(MyData$weekend == "no"),]
+MyDataN$Pred1 <- MyDataN$Pred/0.4393363 #Pre-covid intercept for weekday
+MyDataN$PredS <- MyDataN$Pred1/MyDataN$Pred
+MyDataN$SeUp1 <- MyDataN$SeUp*MyDataN$PredS
+MyDataN$SeLo1 <- MyDataN$SeLo*MyDataN$PredS
+
+# Just weekends
+MyData %>%
+  filter(phase == 'Pre') %>%
+  filter(weekend == 'yes') %>%
+  dplyr::select(Pred)
+# Pred    
+# 1.245898 
+
+MyDataY <- MyData[which(MyData$weekend == "yes"),]
+MyDataY$Pred1 <- MyDataY$Pred/1.245898 #Pre-covid intercept for weekend
+MyDataY$PredS <- MyDataY$Pred1/MyDataY$Pred
+MyDataY$SeUp1 <- MyDataY$SeUp*MyDataY$PredS
+MyDataY$SeLo1 <- MyDataY$SeLo*MyDataY$PredS
+
+# Combine weekends and weekdays
+MyDataNew  <- rbind(MyDataY,MyDataN)
+
+# Set theme
+My_theme <- theme(panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11, colour = "black"),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+# Create new labels
+MyDataNew$phase <- dplyr::recode(MyDataNew$phase,
+                              "Pre" = "Pre lockdown",
+                              "During1" = "Lockdown 1",
+                              "Post1" = "Post lockdown 1",
+                              "During2" = "Lockdown 2",
+                              "Post2" = "Post lockdown 2")
+
+MyDataNew$weekend <- dplyr::recode(MyDataNew$weekend,
+                                "no" = "Weekday",
+                                "yes" = "Weekend")
+
+# Newplot
+ggplot(MyDataNew, aes(x = weekend, y = Pred1)) +
+  ggtitle("Lithuania") +
+  theme(plot.title = element_text(vjust = 1, hjust = 0.5))+
+  xlab("") + 
+  ylab("Standardised fishing effort per administrative unit") +
+  ylim(0,7) + 
+  theme(plot.title = element_text(face="bold", size=14))+
+  theme(text = element_text(size = 13)) +
+  theme(panel.background = element_blank())+
+  theme(panel.border = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(plot.margin = element_rect(fill = NA, colour = "black", size = 1))+
+  theme(strip.background = element_rect
+        (fill = "white", color = "white", size = 1))+
+  theme(plot.background = element_rect(colour = "white", size = 1),
+        plot.margin = margin(t = 10, 
+                             r = 10,  
+                             b = 10,  
+                             l = 10))+
+  My_theme +
+  geom_pointrange(data = MyDataNew, aes(x = weekend, y = Pred1, ymin = SeLo1,
+                                     ymax = SeUp1, group = weekend, col = weekend))+
+  scale_color_manual(values=c("dodgerblue2", "firebrick2"),
+                     name="",
+                     breaks=c("Weekday", "Weekend"))+
+  facet_grid(. ~ phase) +
+  theme(strip.text.x = element_blank())+
+  geom_text(aes(label = phase), size = 4, fontface = "italic", x = Inf, y = Inf, 
+            hjust = 1.1, vjust = 2, check_overlap = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position = "none")
+
+
+
+```
+
+# COVID effort plot
+
+How to combine with unemployment?
+https://blog.datawrapper.de/dualaxis/
+
+```{r}
+######################################
+
+# R code for analysis of covid fishing effort data
+# by Carl Smith
+
+######################################
+
+df <- data.frame(
+  country = factor(c("CR", "D", "G", "L", 
+                     "CR", "D", "G", "L", 
+                     "CR", "D", "G", "L", 
+                     "CR", "D", "G", "L")),
+  apd = c(2.2, 1.1, 2.7, 3.8, 
+          1.7, 0.4, 3.0, 3.4,
+          1.3, 0.5, 2.0, 2.5,
+          2.1, 0.6, 1.2, 2.8),
+  phase = factor(c("dur1", "dur1", "dur1", "dur1",
+                   "post1", "post1","post1", "post1",
+                   "dur2", "dur2", "dur2", "dur2", 
+                   "post2", "post2","post2", "post2")),
+  upper = c(2.0, 1.0, 2.5, 3.6, 
+            1.5, 0.3, 2.9, 3.2,
+            1.2, 0.4, 1.9, 2.3,
+            1.8, 0.4, 1.1, 2.6),
+  lower = c(2.5, 1.3, 2.9, 4.0, 
+            1.9, 0.6, 3.2, 3.7,
+            1.5, 0.6, 2.1, 2.7,
+            2.4, 0.7, 1.3, 3.1))
+
+df$phase <-as.factor(df$phase)
+df$phase <- relevel(df$phase, ref = "post2")
+df$phase <- relevel(df$phase, ref = "dur2")
+df$phase <- relevel(df$phase, ref = "post1")
+df$phase <- relevel(df$phase, ref = "dur1")
+table(df$phase)
+
+
+# Plot data
+label_phase <- c(dur1 = "Lockdown 1", post1 = "Post lockdown 1", 
+                 dur2 = "Lockdown 2", post2 = "Post lockdown 2")
+label_c     <- c(CR = "Czech Republic", D = "Denmark",
+                 G = "Germany", L = "Lithuania")
+
+My_theme <- theme(axis.text.y = element_blank(),
+                  axis.ticks.x = element_blank(),
+                  panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, 
+                                              color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 14),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+countrylabels <- c("Czech Republic", "Denmark", "Germany", "Lithuania",
+                   "Czech Republic", "Denmark", "Germany", "Lithuania",
+                   "Czech Republic", "Denmark", "Germany", "Lithuania",
+                   "Czech Republic", "Denmark", "Germany", "Lithuania")
+
+ggplot() + 
+  ylab("Angling effort ratio") +
+  xlab("Country") +
+  geom_pointrange(data = df, aes(x = country, y = apd, ymin = lower,
+                                     ymax = upper, group = country, col = country))+
+  scale_x_discrete(labels = countrylabels) +
+  My_theme + 
+  theme(legend.position='none') +
+  theme(axis.text.y = element_text(color="black", size=12)) + ylim(0,5) +
+  theme(axis.text.x = element_text(color="black", size=11, angle=45, 
+                                   vjust = 0.9, hjust = 0.9)) +
+  theme(axis.ticks.x = element_line(color="black")) +
+  theme(axis.ticks.y = element_line(color="black")) +
+  theme(strip.text.x = element_text(size = 14)) +
+  theme(strip.text.y = element_text(size = 14)) +
+  geom_hline(yintercept=1, linetype="dashed", 
+             color = "red1", size=1) +
+  ylim(0,4) +
+  facet_grid(. ~ phase, scales = "fixed", 
+             labeller = labeller(country = label_c,
+                                 phase = label_phase))
+
+# === hic est finis ===
+
+```
+
+
+# Lockdowns
+Lockdowns in CZ, Denmark, Germany, Lithuania
+
+```{r fig.width=4, fig.asp=0.4}
+
+
+lockdowns_raw <- import(here("data", "covid_restrictions", "lockdowns_raw.xlsx"))
+
+lockdowns <- lockdowns_raw %>% 
+  janitor::clean_names() %>% 
+  dplyr::mutate(start = lubridate::as_date(start)) %>% 
+  dplyr::mutate(end = lubridate::as_date(end)) %>% 
+  dplyr::mutate(lockdown_phase = fct_relevel(lockdown_phase, "Pre lockdown", "Lockdown 1", "Post lockdown 1", "Lockdown 2", "Post lockdown 2")) 
+  
+lock_diary <- lockdowns %>% 
+  dplyr::group_by(country, lockdown_phase) %>% 
+  dplyr::mutate(date = list(ymd(start):ymd(end))) %>% 
+  tidyr::unnest(cols = c(date)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(date, lockdown_phase, country) %>% 
+  dplyr::mutate(date = lubridate::as_date(date)) %>% 
+  dplyr::mutate(lockdown = case_when(
+    lockdown_phase == "Pre lockdown" ~ "no",
+    lockdown_phase == "Post lockdown 1" ~ "no",
+    lockdown_phase == "Post lockdown 2" ~ "no",
+    TRUE ~ "yes"
+  )) %>% 
+  dplyr::mutate(lockdown = as.factor(lockdown)) %>% 
+  dplyr::mutate(month = zoo::as.yearmon(date))
+
+
+
+
+lock_diary %>% 
+  ggplot2::ggplot(aes(date, lockdown, color = lockdown_phase)) +
+  geom_line(size=1.5)+
+  ggtitle("Lockdowns across countries")+
+  xlab("Date") + 
+  ylab("Lockdown") +
+  labs(colour = "Lockdown Phase") +
+  theme_get()+
+  facet_wrap(.~country)
+
+lock_diary %>% 
+  dplyr::filter(country =="Germany") %>% 
+  ggplot2::ggplot(aes(date, lockdown, color = lockdown_phase)) +
+  geom_line(size=2)+
+  ggtitle("Lockdown in Germany")+
+  xlab("Date") + 
+  ylab("Lockdown") +
+  labs(colour = "Lockdown Phase") +
+  theme_get()
+
+
+
+```
+
+
+
+
+# Unemployment and effort
+
+```{r}
+
+
+paro_month4 <- rio::import(here::here("data", "plots", "paro_4countries.csv")) %>% 
+  tidyr::drop_na() %>% 
+  tidyr::pivot_longer(cols= !TIME, names_to = "month",values_to = "unemployment") %>% 
+  dplyr::rename(country = TIME) %>% 
+  dplyr::mutate(country = dplyr::recode(country, "Czechia" = "Czech Republic", "Germany (until 1990 former territory of the FRG)" = "Germany")) %>% 
+  dplyr::mutate(month = zoo::as.yearmon(month)) %>% 
+  dplyr::left_join(lock_diary) %>% 
+  
+  #mean unemployment by phase and country
+  dplyr::group_by(lockdown_phase, country) %>%
+  dplyr::mutate(mean_unem = mean(unemployment)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::filter(date > "2019-09-01") 
+
+eu_paro_month <- rio::import(here::here("data", "plots", "data_eu.csv")) %>% 
+  tidyr::pivot_longer(cols= !TIME, names_to = "month",values_to = "unemployment") %>% 
+  dplyr::select(!TIME)%>% 
+  dplyr::mutate(month = zoo::as.yearmon(month)) %>% 
+  dplyr::left_join(lock_diary) %>% 
+  dplyr::select(month, unemployment, lockdown_phase) %>% 
+   dplyr::distinct()
+  
+eu_paro_phase <- eu_paro_month %>% 
+  #mean unemployment by phase 
+  dplyr::group_by(lockdown_phase) %>%
+  dplyr::mutate(mean_unem = mean(unemployment)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(lockdown_phase, mean_unem) %>% 
+  dplyr::distinct()
+
+
+
+
+```
+
+## Unemployment plots
+
+```{r}
+
+paro_ymonth <-paro_month4 %>% 
+ dplyr::mutate(country = fct_relevel(country,"Lithuania", "Denmark", "Germany", "Czech Republic")) %>% 
+  dplyr::mutate(month = as.Date(as.yearmon(month))) %>% 
+  dplyr::mutate(month =lubridate::as_date(month))
+
+str(paro_ymonth)
+
+# 4 countries
+paro <- ggplot(data = paro_ymonth, mapping = aes(x = month, y = unemployment , color = country)) + 
+  geom_line(size= 1) + 
+  # geom_point() + 
+  # labs(subtitle = "Percentage of population in the labour force" 
+  # ) +
+  theme_bw()+
+  ylab("Percentage of unemployed population in the labour force") +
+  xlab("")+
+  scale_x_date(breaks = scales::date_breaks("4 months"), date_labels = "%b-%Y") +
+  guides(color = guide_legend(title = "Country"))+
+  theme(axis.title=element_text(size=10)) +
+  theme(axis.text.x = element_text(color="black", size=9))+
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-01")), linetype= 2) +
+  geom_vline(xintercept = as.numeric(as.Date("2020-06-01")), linetype= 2)+
+  geom_vline(xintercept = as.numeric(as.Date("2020-10-01")), linetype= 2)+
+  geom_vline(xintercept = as.numeric(as.Date("2021-04-01")), linetype= 2)
+
+
+
+# Facet
+ggplot(data = paro_month4, mapping = aes(x = month, y = unemployment , color = lockdown_phase)) + # specify data, x-axis, y-axis and grouping variable
+  geom_line() + # a line per group
+  # geom_point() + # points per group
+  # labs(subtitle = "Percentage of population in the labour force" 
+  # ) +
+  theme_bw()+
+  ylab("Percentage of unemployed population in the labour force") +
+  xlab("")+
+  guides(color = guide_legend(title = "Country"))+
+  theme(axis.title=element_text(size=9)) +
+   facet_wrap(~country) 
+
+
+
+# Zone eu
+
+ggplot(data = eu_paro_month , mapping = aes(x = month, y = unemployment , color = lockdown_phase)) + # specify data, x-axis, y-axis and grouping variable
+  geom_line() + # a line per group
+  # geom_point() + # points per group
+  # labs(subtitle = "Percentage of population in the labour force" 
+  # ) +
+  theme_bw()+
+  ylab("Percentage of unemployed population in the labour force") +
+  xlab("")+
+  guides(color = guide_legend(title = "Lockdown Phase"))+
+  theme(axis.title=element_text(size=9))
+
+```
+
+## Effort plots
+
+
+```{r}
+paro_phase4 <- paro_month4 %>% 
+    dplyr::select(country, lockdown_phase, mean_unem) %>% 
+  dplyr::distinct() %>% 
+  dplyr::rename("phase" = "lockdown_phase")
+
+rio::export(paro_phase4, here::here("output", "pnas_plots", "paro.csv"))
+
+
+
+# data Carl
+
+df <- data.frame(
+  country = factor(c("CR", "D", "G", "L", 
+                     "CR", "D", "G", "L", 
+                     "CR", "D", "G", "L", 
+                     "CR", "D", "G", "L")),
+  apd = c(2.2, 1.1, 2.7, 3.8, 
+          1.7, 0.4, 3.0, 3.4,
+          1.3, 0.5, 2.0, 2.5,
+          2.1, 0.6, 1.2, 2.8),
+  phase = factor(c("dur1", "dur1", "dur1", "dur1",
+                   "post1", "post1","post1", "post1",
+                   "dur2", "dur2", "dur2", "dur2", 
+                   "post2", "post2","post2", "post2")),
+  upper = c(2.0, 1.0, 2.5, 3.6, 
+            1.5, 0.3, 2.9, 3.2,
+            1.2, 0.4, 1.9, 2.3,
+            1.8, 0.4, 1.1, 2.6),
+  lower = c(2.5, 1.3, 2.9, 4.0, 
+            1.9, 0.6, 3.2, 3.7,
+            1.5, 0.6, 2.1, 2.7,
+            2.4, 0.7, 1.3, 3.1))
+
+df$phase <-as.factor(df$phase)
+df$phase <- relevel(df$phase, ref = "post2")
+df$phase <- relevel(df$phase, ref = "dur2")
+df$phase <- relevel(df$phase, ref = "post1")
+df$phase <- relevel(df$phase, ref = "dur1")
+table(df$phase)
+
+########
+
+paro_effort <- df %>% 
+    dplyr::mutate(country = dplyr::recode(country, 
+                                          "CR" = "Czech Republic", 
+                                          "G" = "Germany",
+                                          "D" = "Denmark",
+                                          "L" = "Lithuania"
+                                    )) %>% 
+  dplyr::mutate(phase = dplyr::recode(phase, 
+                                      "dur1" = "Lockdown 1", 
+                                       "post1" = "Post lockdown 1",
+                                       "dur2" = "Lockdown 2", 
+                                       "post2" = "Post lockdown 2")) %>% 
+  dplyr::left_join(paro_phase4) %>% 
+   dplyr::mutate(country = fct_relevel(country,"Lithuania", "Denmark", "Germany", "Czech Republic"))
+  
+
+
+# Plot data
+
+
+
+
+My_theme <- theme(axis.text.y = element_blank(),
+                  axis.ticks.x = element_blank(),
+                  panel.background = element_blank(),
+                  panel.border = element_rect(fill = NA, 
+                                              color = "black", size = 1.4),
+                  strip.background = element_rect(fill = "NA", 
+                                                  color = "white", size = 1),
+                  text = element_text(size = 11),
+                  panel.grid.major = element_line(colour = "white", size = 0.1),
+                  panel.grid.minor = element_line(colour = "white", size = 0.1))
+
+
+effort <- ggplot() + 
+  ylab("Angling effort ratio") +
+  xlab("Country") +
+  geom_pointrange(data = paro_effort, aes(x = country, y = apd, ymin = lower,
+                                     ymax = upper, group = country, col = country))+
+
+
+  My_theme + 
+  theme(legend.position='none') +
+  theme(axis.text.y = element_text(color="black", size=10)) + ylim(0,5) +
+  theme(axis.text.x = element_text(color="black", size=10, angle=45, 
+                                   vjust = 0.9, hjust = 0.9)) +
+  theme(axis.ticks.x = element_line(color="black")) +
+  theme(axis.ticks.y = element_line(color="black")) +
+  theme(strip.text.x = element_text(size = 10)) +
+  theme(strip.text.y = element_text(size = 10)) +
+  geom_hline(yintercept=1, linetype="dashed", 
+             color = "red1", size=1) +
+  ylim(0,4) +
+  facet_grid(. ~ phase, scales = "fixed")
+
+
+effort + paro
+
+
+# # Plot data
+# # label_phase <- c(dur1 = "Lockdown 1", post1 = "Post lockdown 1", 
+# #                  dur2 = "Lockdown 2", post2 = "Post lockdown 2")
+# # label_c     <- c(CR = "Czech Republic", D = "Denmark",
+# #                  G = "Germany", L = "Lithuania")
+# 
+# My_theme <- theme(axis.text.y = element_blank(),
+#                   axis.ticks.x = element_blank(),
+#                   panel.background = element_blank(),
+#                   panel.border = element_rect(fill = NA, 
+#                                               color = "black", size = 1.4),
+#                   strip.background = element_rect(fill = "NA", 
+#                                                   color = "white", size = 1),
+#                   text = element_text(size = 14),
+#                   panel.grid.major = element_line(colour = "white", size = 0.1),
+#                   panel.grid.minor = element_line(colour = "white", size = 0.1))
+# 
+# countrylabels <- c("Czech Republic", "Denmark", "Germany", "Lithuania",
+#                    "Czech Republic", "Denmark", "Germany", "Lithuania",
+#                    "Czech Republic", "Denmark", "Germany", "Lithuania",
+#                    "Czech Republic", "Denmark", "Germany", "Lithuania")
+# 
+# ggplot() + 
+#   ylab("Angling effort ratio") +
+#   xlab("Country") +
+#   geom_pointrange(data = df, aes(x = country, y = apd, ymin = lower,
+#                                      ymax = upper, group = country, col = country))+
+#   scale_x_discrete(labels = countrylabels) +
+#   My_theme + 
+#   theme(legend.position='none') +
+#   theme(axis.text.y = element_text(color="black", size=12)) + ylim(0,5) +
+#   theme(axis.text.x = element_text(color="black", size=11, angle=45, 
+#                                    vjust = 0.9, hjust = 0.9)) +
+#   theme(axis.ticks.x = element_line(color="black")) +
+#   theme(axis.ticks.y = element_line(color="black")) +
+#   theme(strip.text.x = element_text(size = 14)) +
+#   theme(strip.text.y = element_text(size = 14)) +
+#   geom_hline(yintercept=1, linetype="dashed", 
+#              color = "red1", size=1) +
+#   ylim(0,4) +
+#   facet_grid(. ~ phase, scales = "fixed", 
+#              labeller = labeller(country = label_c,
+#                                  phase = label_phase))
+
+
+
+```
+
+
+
+
+
