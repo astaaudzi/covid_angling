@@ -43,8 +43,8 @@ options(allow_html_in_all_outputs=TRUE)
 
 pacman::p_load(rio, tidyverse,janitor, data.table, here, sf, readxl, lubridate, leaflet, zoo, gghighlight, lme4,
                patchwork, # two plots side by side
-               scales, # for label_wrap
-               ggpubr #4 plots
+               scales # for label_wrap
+              
                
                ) # just add needed packages to this line and Pacman will install and load them.
 
